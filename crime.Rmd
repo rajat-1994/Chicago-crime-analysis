@@ -1,0 +1,125 @@
+
+
+```{r}
+setwd("D:/datasets/crimeproject")
+library("ggplot2")
+library("dplyr")
+library("lubridate")
+library("data.table")
+library("highcharter")
+library("leaflet")
+library("data.table")
+library("RSQLite")
+library("dbConnect")
+library("sqldf")
+```
+
+```{r}
+db<-dbConnect(SQLite(),dbname="Crime.sqlite")
+```
+```{r}
+
+```
+
+```{r}
+crime<-read.csv("Chicago_Crimes_2012_to_2017.csv",stringsAsFactors = FALSE)
+dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE)
+
+crime<-read.csv("Chicago_Crimes_2008_to_2011.csv",stringsAsFactors = FALSE)
+dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE,append=TRUE)
+
+crime<-read.csv("Chicago_Crimes_2005_to_2007.csv",stringsAsFactors = FALSE)
+dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE,append=TRUE)
+```
+```{r}
+glimpse(crime)
+```
+
+```{r}
+
+```
+
+```{r}
+df=dbGetQuery(db,"SELECT ID,Year FROM Crime ")
+df<-na.omit(df)%>%select(Year,ID)%>%filter(Year!=-87,Year!=0)
+
+data<-df %>%
+  group_by(Year) %>%                              # calculate the counts
+  summarize(counts = n()) %>%
+  arrange(Year)
+
+ggplot(aes(x=Year,y=counts,width=0.75),data = data)+
+  geom_bar(stat="identity",fill="#B20000",color="#000000")+
+   ggtitle("Number of crimes reported per year")+
+  xlab("Year")+
+  scale_y_continuous(labels=scales::comma)+
+  ylab("Number of Crime incident")+
+  ggsave("attackperyear.png")
+```
+
+```{r}
+df=dbGetQuery(db,"SELECT [Primary.Type] FROM Crime ")
+df<-na.omit(df)
+colnames(df)<-c("Type")
+
+data<-data.table(df)
+data<-data[,.N,by=Type]
+data<-data%>%select(Type,N)%>%arrange(-N)%>%filter(N>100)
+
+ggplot(aes(x=reorder(Type,N),y=N,width=0.5),data = data)+
+  geom_bar(stat="identity",fill="#B20000",color="#000000")+
+  coord_flip()+
+   ggtitle("Number of crimes reported per year")+
+  xlab("Categories of crime")+
+  ylab("Number of Crime incident")+
+  ggsave("Crimepertype.png")
+```
+```{r}
+df=dbGetQuery(db,"SELECT [Location.Description] FROM Crime ")
+df<-na.omit(df)
+colnames(df)<-c("Location")
+
+data<-data.table(df)
+data<-data[,.N,by=Location]
+data<-data%>%select(Location,N)%>%arrange(-N)%>%filter(N>20000)
+
+
+
+highchart() %>% 
+  hc_add_series(data$N,type= "column") %>%
+  hc_xAxis(categories=data$Location,title = list(text = "Number of crimes")) %>% 
+  hc_yAxis(title = list(text = "Top 20 Location of crime"))%>%
+  hc_add_theme(hc_theme_darkunica())
+
+```
+
+```{r}
+#arrest and crime time series
+df=dbGetQuery(db,"SELECT Arrest,Year,ID FROM Crime ")
+
+df<-na.omit(df)
+
+data<-df%>%select(Year,ID)%>%filter(Year!=0,Year!=-87)%>%arrange(Year)
+d<-df%>%select(Year,Arrest)%>%filter(Year!=0,Year!=-87,Arrest== 'True')%>%arrange(Year)
+data<-data.table(data)
+d<-data.table(d)
+data<-data[,.N,by=Year]
+d<-d[,.N,by=Year]
+data$Arrest<-d%>%select(N)
+
+
+highchart() %>% 
+   hc_add_series(data$N,name="Number of crime") %>%
+  hc_add_series(data$Arrest,name="Number of Arrest") %>%
+  hc_xAxis(categories=data$Year,title = list(text = "Year")) %>%
+  hc_title(text = "Time series of Number of Arrest made and Total number of crime") %>%
+  hc_add_theme(hc_theme_darkunica())
+```
+```{r}
+
+```
+
+```{r}
+
+```
+
