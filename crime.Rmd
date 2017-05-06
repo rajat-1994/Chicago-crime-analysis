@@ -1,6 +1,9 @@
+---
+output: html_notebook
+---
 
 
-```{r}
+```{r Loading Libraries}
 setwd("D:/datasets/crimeproject")
 library("ggplot2")
 library("dplyr")
@@ -11,25 +14,28 @@ library("leaflet")
 library("data.table")
 library("RSQLite")
 library("dbConnect")
-library("sqldf")
+library("RColorBrewer")
+library("rgdal")
+library("maptools")
+library("ggmap")
 ```
 
-```{r}
+```{r Establish a connection with database}
 db<-dbConnect(SQLite(),dbname="Crime.sqlite")
 ```
 ```{r}
 
 ```
 
-```{r}
-crime<-read.csv("Chicago_Crimes_2012_to_2017.csv",stringsAsFactors = FALSE)
-dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE)
-
-crime<-read.csv("Chicago_Crimes_2008_to_2011.csv",stringsAsFactors = FALSE)
-dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE,append=TRUE)
-
-crime<-read.csv("Chicago_Crimes_2005_to_2007.csv",stringsAsFactors = FALSE)
-dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE,append=TRUE)
+```{r Load data}
+ crime<-read.csv("Chicago_Crimes_2012_to_2017.csv",stringsAsFactors = FALSE)
+ dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE)
+ 
+ crime<-read.csv("Chicago_Crimes_2008_to_2011.csv",stringsAsFactors = FALSE)
+ dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE,append=TRUE)
+ 
+ crime<-read.csv("Chicago_Crimes_2005_to_2007.csv",stringsAsFactors = FALSE)
+ dbWriteTable(conn=db,name="Crime",value = crime,row.names=FALSE,append=TRUE)
 ```
 ```{r}
 glimpse(crime)
@@ -39,7 +45,7 @@ glimpse(crime)
 
 ```
 
-```{r}
+```{r plotting crime 1}
 df=dbGetQuery(db,"SELECT ID,Year FROM Crime ")
 df<-na.omit(df)%>%select(Year,ID)%>%filter(Year!=-87,Year!=0)
 
@@ -75,6 +81,22 @@ ggplot(aes(x=reorder(Type,N),y=N,width=0.5),data = data)+
   ggsave("Crimepertype.png")
 ```
 ```{r}
+df=dbGetQuery(db,"SELECT Year,[Primary.Type] FROM Crime where [Primary.Type]='THEFT'")
+df<-na.omit(df)
+df<-data.table(df)
+df<-df[,.N,by=Year]
+df<-df%>%arrange(Year)
+highchart() %>% 
+  hc_add_series(df$N,name="Number of Theft") %>%
+  hc_xAxis(categories=df$Year,title = list(text = "Year")) %>%
+  hc_title(text = "Time series of Number of Theft per year") %>%
+  hc_add_theme(hc_theme_darkunica())
+```
+
+
+
+
+```{r}
 df=dbGetQuery(db,"SELECT [Location.Description] FROM Crime ")
 df<-na.omit(df)
 colnames(df)<-c("Location")
@@ -91,6 +113,19 @@ highchart() %>%
   hc_yAxis(title = list(text = "Top 20 Location of crime"))%>%
   hc_add_theme(hc_theme_darkunica())
 
+```
+
+```{r}
+df=dbGetQuery(db,"SELECT Year,[Location.Description] FROM Crime where [Location.Description]='STREET'")
+df<-na.omit(df)
+df<-data.table(df)
+df<-df[,.N,by=Year]
+df<-df%>%arrange(Year)
+highchart() %>% 
+  hc_add_series(df$N,name="Number of crime on street") %>%
+  hc_xAxis(categories=df$Year,title = list(text = "Year")) %>%
+  hc_title(text = "Time series of Number of crime on street per year") %>%
+  hc_add_theme(hc_theme_darkunica())
 ```
 
 ```{r}
